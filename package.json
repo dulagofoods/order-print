@@ -8,7 +8,10 @@
     "node-thermal-printer": "^2.0.0",
     "socket.io": "^2.0.4"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "browser-sync": "^2.23.6",
+    "gulp": "^3.9.1"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
