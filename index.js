@@ -1,6 +1,3 @@
-const app = require("express")();
-const server = require('http').Server(app);
-const io = require('socket.io')(server);
 const printer = require('node-thermal-printer');
 
 printer.init({
@@ -42,41 +39,61 @@ printer.isPrinterConnected(function (isConnected) {
   printer.execute();
 });
 
-server.listen(3000);
+function toFloat(number) {
 
-app.get('/', function (req, res) {
-  res.sendFile(__dirname + '/public/index.html')
-});
+  try {
 
-function floatToBRL(number, isCurrency) {
+    return parseFloat(number);
 
-  if (isCurrency) {
-    return parseFloat(number).toFixed(2).toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      style: 'currency',
-      currency: 'BRL'
-    }).replace(/\s/g, '');
-  } else {
-    return parseFloat(number).toFixed(2).toLocaleString('pt-BR').replace(/\s/g, '');
+  } catch (e) {
+
+    console.log('erro com parse');
+
+    return 0;
+
   }
 
 }
 
+function floatToBRL(number, isCurrency) {
+
+  try {
+
+    if (isCurrency) {
+      return parseFloat(number).toFixed(2).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        style: 'currency',
+        currency: 'BRL'
+      }).replace(/\s/g, '');
+    } else {
+      return parseFloat(number).toFixed(2).toLocaleString('pt-BR').replace(/\s/g, '');
+    }
+
+  } catch (e) {
+
+    console.log('problema no ParseFloat');
+
+    return parseFloat('0').toFixed(2).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      style: 'currency',
+      currency: 'BRL'
+    }).replace(/\s/g, '');
+
+  }
+
+}
+
+const server = require('http').createServer();
+const io = require('socket.io')(server);
+
+server.listen(3000);
+
 io.on('connection', function (socket) {
+
   console.log('user connected');
-  socket.on('hello', msg => {
-    console.log(msg);
-    // printer.println(msg);
-    // printer.execute();
-  });
-  socket.on('cut paper', state => {
-    console.log('cut paper');
-    if (state)
-      printer.cut();
-    printer.execute();
-  });
+
   socket.on('print order', order => {
-    console.log(order);
+    console.log(order.consumerName);
     if (order) {
 
       printer.setTypeFontA();
@@ -92,20 +109,45 @@ io.on('connection', function (socket) {
         printer.println('Rua Benjamin Caetano Zanbom, 988');
         printer.println('Bandeirantes - PR');
         printer.println('(43) 3542-0021');
-        printer.newLine();
 
         printer.println('------------------------------------------------');
-        printer.alignLeft();
         printer.newLine();
-
-        printer.setTextDoubleHeight();
+        printer.alignLeft();
 
         // consumer name
-        printer.print('Cliente: ');
-        printer.bold(true);
-        printer.print(order.consumerName);
-        printer.bold(false);
-        printer.newLine();
+        if (order.consumerName) {
+          printer.setTextDoubleHeight();
+          printer.print('Cliente: ');
+          printer.bold(true);
+          printer.print(order.consumerName);
+          printer.setTextNormal();
+          printer.bold(false);
+          printer.newLine();
+        }
+
+        // delivery time
+        if (order.deliveryTime) {
+          printer.setTextDoubleHeight();
+          printer.print('Entrega: ');
+          printer.bold(true);
+          printer.print(order.deliveryTime);
+
+          if (!order.delivery)
+            printer.print(' (AQUI)');
+
+          printer.setTextNormal();
+          printer.bold(false);
+          printer.newLine();
+        } else {
+          printer.setTextDoubleHeight();
+          printer.print('Entrega: ');
+          printer.bold(true);
+          printer.print('AQUI');
+          printer.setTextNormal();
+          printer.bold(false);
+          printer.newLine();
+        }
+
         printer.newLine();
 
         // table header
@@ -122,60 +164,312 @@ io.on('connection', function (socket) {
           }
         ]);
 
-        let orderItems = Object.values(order.items);
-        orderItems.forEach(orderItem => {
-          // table content
-          printer.tableCustom([
-            {
-              text: orderItem.quantity + '-' + orderItem.itemName + ' (' + orderItem.itemPrice + ')',
-              align: 'LEFT',
-              width: .8,
-              bold: true
-            },
-            {
-              text: floatToBRL(orderItem.itemPrice * orderItem.quantity),
-              align: 'LEFT',
-              width: .2
+        // order items
+        if (order.items) {
+
+          printer.setTextDoubleHeight();
+
+          let orderItems = Object.values(order.items);
+          orderItems.forEach(orderItem => {
+
+            printer.tableCustom([
+              {
+                text: orderItem.quantity + '-' + orderItem.itemName + ' (' + orderItem.itemPrice + ')',
+                align: 'LEFT',
+                width: .8,
+                bold: true
+              },
+              {
+                text: floatToBRL(orderItem.itemPrice * orderItem.quantity),
+                align: 'LEFT',
+                width: .2
+              }
+            ]);
+
+            if (orderItem.note) {
+              printer.setTextNormal();
+              printer.println('  ' + orderItem.note.replace(/\n/g, '\n  '));
             }
-          ]);
 
-          if (orderItem.note)
-            printer.println('  ' + orderItem.note.replace(/\n/g, '\n  '));
+          });
 
-        });
+        }
 
-        printer.setTextNormal();
-        printer.println('------------------------------------------------');
-        printer.setTextDoubleHeight();
-        printer.tableCustom([
-          {
-            text: 'Total:  ',
-            align: 'RIGHT',
-            width: .8
-          },
-          {
-            text: floatToBRL(order.priceAmount, true),
-            align: 'LEFT',
-            bold: true,
-            width: .2
+        if (order.billing) {
+
+          printer.setTextNormal();
+          printer.println('------------------------------------------------');
+
+          // priceAmount
+          if (order.billing.priceAmount) {
+
+            if (order.billing.payments)
+              if (Object.values(order.billing.payments).length === 1) {
+                printer.tableCustom([
+                  {
+                    text: 'Total:  ',
+                    align: 'RIGHT',
+                    width: .8
+                  },
+                  {
+                    text: floatToBRL(order.billing.priceAmount, true),
+                    align: 'LEFT',
+                    bold: true,
+                    width: .2
+                  }
+                ]);
+              } else {
+                printer.tableCustom([
+                  {
+                    text: 'Total:  ',
+                    align: 'RIGHT',
+                    width: .65
+                  },
+                  {
+                    text: floatToBRL(order.billing.priceAmount, true),
+                    align: 'LEFT',
+                    bold: true,
+                    width: .35
+                  }
+                ]);
+              }
+
           }
-        ]);
-        printer.tableCustom([
-          {
-            text: 'Troco p:  ',
-            align: 'RIGHT',
-            width: .8
-          },
-          {
-            text: floatToBRL(order.changeOption, true),
-            align: 'LEFT',
-            bold: true,
-            width: .2
-          }
-        ]);
 
-        printer.newLine();
-        printer.println('Retirada: AQUI');
+          // payments
+          if (order.billing.payments) {
+            printer.newLine();
+            let orderItems = Object.values(order.billing.payments);
+            orderItems.forEach(orderPaymentItem => {
+
+              if (orderPaymentItem.method === 'money') {
+
+                if (orderPaymentItem.isDefault) {
+
+                  printer.tableCustom([
+                    {
+                      text: 'Pago (Dinheiro):  ',
+                      align: 'RIGHT',
+                      width: .8
+                    },
+                    {
+                      text: floatToBRL(orderPaymentItem.paidValue, true),
+                      align: 'LEFT',
+                      bold: true,
+                      width: .2
+                    }
+                  ]);
+
+                } else {
+
+                  printer.tableCustom([
+                    {
+                      text: 'Pago (Dinheiro):  ',
+                      align: 'RIGHT',
+                      width: .65
+                    },
+                    {
+                      text: floatToBRL(orderPaymentItem.paidValue, true) + '->' + floatToBRL(orderPaymentItem.referenceValue, true),
+                      align: 'LEFT',
+                      bold: true,
+                      width: .35
+                    }
+                  ]);
+
+                }
+
+                printer.tableCustom([
+                  {
+                    text: 'Troco:  ',
+                    align: 'RIGHT',
+                    width: .65
+                  },
+                  {
+                    text: floatToBRL(toFloat(orderPaymentItem.paidValue) - toFloat(orderPaymentItem.referenceValue), true),
+                    align: 'LEFT',
+                    bold: true,
+                    width: .35
+                  }
+                ]);
+
+
+              } else if (orderPaymentItem.method === 'card') {
+
+                if (orderPaymentItem.isDefault) {
+
+                  printer.tableCustom([
+                    {
+                      text: 'Pago (Cartão):  ',
+                      align: 'RIGHT',
+                      width: .8
+                    },
+                    {
+                      text: floatToBRL(orderPaymentItem.paidValue, true),
+                      align: 'LEFT',
+                      bold: true,
+                      width: .2
+                    }
+                  ]);
+
+                } else {
+
+                  printer.tableCustom([
+                    {
+                      text: 'Pago (Cartão):  ',
+                      align: 'RIGHT',
+                      width: .65
+                    },
+                    {
+                      text: floatToBRL(orderPaymentItem.paidValue, true) + '->' + floatToBRL(orderPaymentItem.referenceValue, true),
+                      align: 'LEFT',
+                      bold: true,
+                      width: .35
+                    }
+                  ]);
+
+                }
+
+              } else if (orderPaymentItem.method === 'paid') {
+
+                if (orderPaymentItem.isDefault) {
+
+                  printer.tableCustom([
+                    {
+                      text: 'Pago:  ',
+                      align: 'RIGHT',
+                      width: .8
+                    },
+                    {
+                      text: 'PAGO',
+                      align: 'LEFT',
+                      bold: true,
+                      width: .2
+                    }
+                  ]);
+
+                } else {
+
+                  printer.tableCustom([
+                    {
+                      text: 'Pago (desconto):  ',
+                      align: 'RIGHT',
+                      width: .65
+                    },
+                    {
+                      text: floatToBRL(orderPaymentItem.paidValue, true),
+                      align: 'LEFT',
+                      bold: true,
+                      width: .35
+                    }
+                  ]);
+
+                }
+
+              } else if (orderPaymentItem.method === 'gift') {
+
+                if (orderPaymentItem.isDefault) {
+
+                  printer.tableCustom([
+                    {
+                      text: 'Pago:  ',
+                      align: 'RIGHT',
+                      width: .8
+                    },
+                    {
+                      text: 'CORTESIA',
+                      align: 'LEFT',
+                      bold: true,
+                      width: .2
+                    }
+                  ]);
+
+                } else {
+
+                  printer.tableCustom([
+                    {
+                      text: 'Pago (cortesia):  ',
+                      align: 'RIGHT',
+                      width: .65,
+                      bold: true
+                    },
+                    {
+                      text: floatToBRL(orderPaymentItem.paidValue, true),
+                      align: 'LEFT',
+                      bold: true,
+                      width: .35
+                    }
+                  ]);
+
+                }
+
+              }
+
+            });
+
+          }
+
+        }
+
+        // delivery
+        if (order.delivery) {
+
+          printer.setTextNormal();
+          printer.bold(false);
+          printer.println('------------------------------------------------');
+
+          try {
+
+            printer.newLine();
+
+            if (order.address) {
+
+              printer.alignLeft();
+
+              if (order.address.street) {
+                printer.print('Endereço: ');
+                if (order.address.street.length > 28) printer.print('\n  ');
+                printer.print(order.address.street);
+                if (order.address.houseNumber)
+                  printer.print(', ' + order.address.houseNumber);
+                printer.newLine();
+              }
+
+              if (order.address.neighborhood) {
+                printer.print('Bairro: ');
+                printer.print(order.address.neighborhood);
+                printer.newLine();
+              }
+
+              if (order.address.addressReference) {
+                printer.print('Referência: ');
+                printer.print(order.address.addressReference);
+                printer.newLine();
+              }
+
+            } else {
+
+              printer.println('ENTREGA (FALTA ENDEREÇO)');
+
+            }
+
+          } catch (e) {
+
+            console.log('eita.. houve algum erro tentando imprimir o endereço');
+
+          }
+
+          printer.newLine();
+
+        } else {
+
+          printer.println('------------------------------------------------');
+          printer.setTextDoubleHeight();
+          printer.bold(true);
+          printer.println('Retirada: AQUI');
+          printer.bold(false);
+          printer.setTextNormal();
+
+        }
 
         printer.cut();
         printer.execute();
@@ -183,6 +477,5 @@ io.on('connection', function (socket) {
       });
 
     }
-
   });
 });
