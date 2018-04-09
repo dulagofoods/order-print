@@ -1,7 +1,7 @@
 const gulp = require('gulp');
 const browserSync = require('browser-sync');
 
-// Static server
+// Static ssl
 gulp.task('browser-sync', function() {
   browserSync.init({
     server: {

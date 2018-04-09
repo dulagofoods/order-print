@@ -86,7 +86,7 @@ function floatToBRL(number, isCurrency) {
 const server = require('http').createServer();
 const io = require('socket.io')(server);
 
-server.listen(3000);
+server.listen(8080);
 
 io.on('connection', function (socket) {
 
@@ -128,7 +128,7 @@ io.on('connection', function (socket) {
         // delivery time
         if (order.deliveryTime) {
           printer.setTextDoubleHeight();
-          printer.print('Entrega: ');
+          printer.print(!!order.delivery ? 'Entrega: ' : 'Retirada: ');
           printer.bold(true);
           printer.print(order.deliveryTime);
 
@@ -405,6 +405,12 @@ io.on('connection', function (socket) {
               }
 
             });
+
+          } else {
+
+            printer.alignCenter();
+            printer.println('VERIFICAR DADOS DE PAGAMENTO \n COM O ATENDIMENTO');
+            printer.alignLeft();
 
           }
 
