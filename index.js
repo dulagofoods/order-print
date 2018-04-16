@@ -93,7 +93,7 @@ io.on('connection', function (socket) {
   console.log('user connected');
 
   socket.on('print order', order => {
-    console.log(order.consumerName);
+    console.log(order.customer);
     if (order) {
 
       printer.setTypeFontA();
@@ -115,11 +115,12 @@ io.on('connection', function (socket) {
         printer.alignLeft();
 
         // consumer name
-        if (order.consumerName) {
+        if (order.customer)
+        if (order.customer.customerName) {
           printer.setTextDoubleHeight();
           printer.print('Cliente: ');
           printer.bold(true);
-          printer.print(order.consumerName);
+          printer.print(order.customer.customerName);
           printer.setTextNormal();
           printer.bold(false);
           printer.newLine();
@@ -127,6 +128,7 @@ io.on('connection', function (socket) {
 
         // delivery time
         if (order.deliveryTime) {
+
           printer.setTextDoubleHeight();
           printer.print(!!order.delivery ? 'Entrega: ' : 'Retirada: ');
           printer.bold(true);
@@ -138,14 +140,17 @@ io.on('connection', function (socket) {
           printer.setTextNormal();
           printer.bold(false);
           printer.newLine();
+
         } else {
+
           printer.setTextDoubleHeight();
-          printer.print('Entrega: ');
+          printer.print(!!order.delivery ? 'Entrega: ' : 'Retirada: ');
           printer.bold(true);
-          printer.print('AQUI');
+          printer.print(!order.delivery ? 'AQUI' : '???');
           printer.setTextNormal();
           printer.bold(false);
           printer.newLine();
+
         }
 
         printer.newLine();
@@ -189,6 +194,7 @@ io.on('connection', function (socket) {
             if (orderItem.note) {
               printer.setTextNormal();
               printer.println('  ' + orderItem.note.replace(/\n/g, '\n  '));
+              printer.setTextDoubleHeight();
             }
 
           });
@@ -469,6 +475,7 @@ io.on('connection', function (socket) {
         } else {
 
           printer.println('------------------------------------------------');
+          printer.newLine();
           printer.setTextDoubleHeight();
           printer.bold(true);
           printer.println('Retirada: AQUI');
