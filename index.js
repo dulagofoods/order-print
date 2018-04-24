@@ -127,12 +127,12 @@ io.on('connection', function (socket) {
         }
 
         // delivery time
-        if (order.deliveryTime) {
+        if (order.deliveryTime !== false) {
 
           printer.setTextDoubleHeight();
           printer.print(!!order.delivery ? 'Entrega: ' : 'Retirada: ');
           printer.bold(true);
-          printer.print(order.deliveryTime);
+          printer.print(order.deliveryTime.time);
 
           if (!order.delivery)
             printer.print(' (AQUI)');
