@@ -18,140 +18,58 @@
 
 <body>
 
-<h1>Gerenciador de pedidos</h1>
-
-<label for="consumerName">Cidadão:</label>
-<input type="text" id="consumerName">
-
-<label for="orderCharge">Troco:</label>
-<input type="number" id="orderCharge" min="0.01" step="0.01" max="2500" value="0.00">
-
-<div class="ItemList">
-  <button class="Item" data-item-name="P" data-item-price="8.00">Add a P item</button>
-  <button class="Item" data-item-name="M" data-item-price="9.00">Add a M item</button>
-  <button class="Item" data-item-name="G" data-item-price="11.00">Add a G item</button>
-  <button class="Item" data-item-name="F" data-item-price="145.00">Add a F item</button>
-</div>
-<button id="print">Print</button>
-<button id="cut">Cut the paper</button>
-<button id="clear">Clear the current order</button>
+<button id="printButton">imprimir pedido</button>
 
 <script src="dist/js/socket.io.js"></script>
-
+<script src="https://www.gstatic.com/firebasejs/5.0.3/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/5.0.3/firebase-database.js"></script>
 <script>
-
-  class Order {
-
-    constructor() {
-
-      this.consumerName = ' ';
-      this.items = {};
-      this.priceAmount = 0.00;
-      this.orderChange = 0.00;
-
-    }
-
-    pushItem(item) {
-
-      if (!!this.items[item.itemName])
-        this.items[item.itemName].quantity++;
-      else
-        this.items[item.itemName] = item;
-
-      this.updatePriceAmount();
-
-    }
-
-    getItemsArray() {
-
-      return Object.values(this.items);
-
-    }
-
-    updatePriceAmount() {
-
-      let priceAmount = 0.00;
-
-      Object.values(this.items).forEach(item => {
-
-        priceAmount += item.itemPrice * item.quantity;
-
-      });
-
-      this.priceAmount = priceAmount.toFixed(2);
-
-    }
-
-    setConsumerName(consumerName) {
-
-      this.consumerName = consumerName;
-
-      if (!this.consumerName.length)
-        this.consumerName = ' ';
-
-    }
-
-    setOrderChange(orderChange) {
-
-      this.orderChange = parseFloat(orderChange).toFixed(2);
-
-    }
-
-    clear() {
-      this.consumerName = ' ';
-      this.items = {};
-      this.priceAmount = 0.00;
-      this.orderChange = 0.00;
-    }
-
-  }
-
+  // Initialize Firebase
+  var config = {
+    apiKey: "AIzaSyCd0gxcfc-VmRZ_zOfteYNJdIV_rJuVyUw",
+    authDomain: "dulago-app.firebaseapp.com",
+    databaseURL: "https://dulago-app.firebaseio.com",
+    projectId: "dulago-app",
+    storageBucket: "dulago-app.appspot.com",
+    messagingSenderId: "384067076512"
+  };
+  firebase.initializeApp(config);
 </script>
 
 <script>
 
-  const order = new Order();
+  const databaseRef = firebase.database();
+  const ordersRef = databaseRef.ref('orders');
+  const printServerRef = databaseRef.ref('printServer');
 
-  const items = document.querySelectorAll('.Item');
-  items.forEach(item => {
-    item.addEventListener('click', () => {
-      order.pushItem({
-        itemName: item.dataset.itemName,
-        itemPrice: item.dataset.itemPrice,
-        quantity: 1
+  let randomOrderData = {};
+  ordersRef.child('-LD29hS2Z3A4Qqz7nawp').on('value', snap => randomOrderData = snap.val());
+
+  let socket = false;
+
+  printServerRef.on('value', snap => {
+
+    if (socket)
+      socket.close();
+
+    let url = snap.val().url || '';
+
+    if (url) {
+
+      socket = io.connect(url);
+      socket.on('connect', () => {
+        console.log('olá');
       });
-    });
+
+    }
+
   });
 
-  const consumerNameElement = document.getElementById('consumerName');
-  consumerNameElement.addEventListener('input', () => {
-    order.setConsumerName(consumerNameElement.value);
-  });
+  document.getElementById('printButton').addEventListener('click', () => {
 
-  const orderChargeElement = document.getElementById('orderCharge');
-  orderChargeElement.addEventListener('input', () => {
-    order.setOrderChange(orderChargeElement.value);
-  });
+    if (socket)
+      socket.emit('print order', randomOrderData);
 
-  document.getElementById('print').addEventListener('click', () => {
-    socket.emit('print order', order);
-  });
-
-  document.getElementById('cut').addEventListener('click', () => {
-    socket.emit('cut paper', true);
-  });
-
-  document.getElementById('clear').addEventListener('click', () => {
-    order.clear();
-  });
-
-</script>
-
-<script>
-
-  const socket = io.connect('http://192.168.1.4:3000');
-  socket.on('connect', () => {
-    socket.emit('hello', new Date());
   });
 
 </script>

@@ -5,12 +5,16 @@
   "main": "index.js",
   "dependencies": {
     "express": "^4.16.3",
+    "firebase-admin": "^5.12.1",
+    "internet-available": "^1.0.0",
+    "is-online": "^7.0.0",
+    "ngrok": "^3.0.1",
     "node-thermal-printer": "^2.0.0",
     "socket.io": "^2.0.4"
   },
   "devDependencies": {
-    "browser-sync": "^2.23.6",
-    "gulp": "^3.9.1"
+    "browser-sync": "^2.24.4",
+    "gulp": "^4.0.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

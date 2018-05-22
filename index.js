@@ -1,8 +1,9 @@
 const printer = require('node-thermal-printer');
+const interface = '/dev/usb/lp1'
 
 printer.init({
   type: 'epson',
-  interface: '/dev/usb/lp1',
+  interface: interface,
   width: 46,
   characterSet: 'SLOVENIA',
   removeSpecialCharacters: true,
@@ -34,7 +35,7 @@ printer.init({
 });
 
 printer.isPrinterConnected(function (isConnected) {
-  console.log('The printer is connected');
+  console.log('A impressora está conectada na interface ' + interface + '!');
   printer.print('->\n');
   printer.execute();
 });
@@ -83,14 +84,67 @@ function floatToBRL(number, isCurrency) {
 
 }
 
-const server = require('http').createServer();
+const ngrok = require('ngrok');
+const admin = require('firebase-admin');
+const isOnline = require('is-online');
+const app = require('express')();
+const server = require('http').Server(app);
 const io = require('socket.io')(server);
 
-server.listen(8080);
+const port = 8080;
+const serviceAccount = require('./dulago-app-firebase-adminsdk-ey4a2-12aff49d26');
+let printServerRef = false;
+
+async function createTunnel() {
+
+  (async () => {
+
+    const url = await ngrok.connect(port);
+
+    if (printServerRef) {
+      printServerRef.set({
+        url: url
+      });
+      console.log('\x1b[32m' + 'Tunel seguro SSL criado no endereço: ' + url, '\x1b[0m');
+    }
+
+  })();
+
+}
+
+try {
+  isOnline({
+    timeout: 5000,
+    version: "v4"
+  }).then(online => {
+    if (online) {
+
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        databaseURL: "https://dulago-app.firebaseio.com"
+      });
+      const db = admin.database();
+      printServerRef = db.ref('printServer');
+
+      createTunnel();
+
+    } else {
+      console.warn('Este servidor não está conectado, verifique a conexão e me reinicie!');
+    }
+  });
+} catch (e) {
+  console.log(e);
+}
+
+server.listen(port);
+
+app.get('/', (req, res) => {
+  res.send('PrintServer is Connected!');
+});
 
 io.on('connection', function (socket) {
 
-  console.log('user connected');
+  console.log('Um novo usuário se conectou ao servidor');
 
   socket.on('print order', order => {
     console.log(order.customer);
@@ -116,15 +170,15 @@ io.on('connection', function (socket) {
 
         // consumer name
         if (order.customer)
-        if (order.customer.customerName) {
-          printer.setTextDoubleHeight();
-          printer.print('Cliente: ');
-          printer.bold(true);
-          printer.print(order.customer.customerName);
-          printer.setTextNormal();
-          printer.bold(false);
-          printer.newLine();
-        }
+          if (order.customer.customerName) {
+            printer.setTextDoubleHeight();
+            printer.print('Cliente: ');
+            printer.bold(true);
+            printer.print(order.customer.customerName);
+            printer.setTextNormal();
+            printer.bold(false);
+            printer.newLine();
+          }
 
         // delivery time
         if (order.deliveryTime !== false) {
