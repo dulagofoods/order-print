@@ -46,19 +46,20 @@
   ordersRef.child('-LD29hS2Z3A4Qqz7nawp').on('value', snap => randomOrderData = snap.val());
 
   let socket = false;
+  let printServerURL = null;
 
   printServerRef.on('value', snap => {
 
     if (socket)
       socket.close();
 
-    let url = snap.val().url || '';
+    printServerURL = snap.val().url || '';
 
-    if (url) {
+    if (printServerURL) {
 
-      socket = io.connect(url);
+      socket = io.connect(printServerURL);
       socket.on('connect', () => {
-        console.log('olá');
+        console.log('conectado com o servidor de impressão');
       });
 
     }
@@ -67,8 +68,18 @@
 
   document.getElementById('printButton').addEventListener('click', () => {
 
-    if (socket)
-      socket.emit('print order', randomOrderData);
+    // if (socket)
+    //   socket.emit('print order', randomOrderData);
+
+    if (printServerURL) {
+
+      fetch(printServerURL + '/print', {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify(randomOrderData)
+      });
+
+    }
 
   });
 

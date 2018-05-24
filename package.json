@@ -4,6 +4,7 @@
   "description": "dulago order print",
   "main": "index.js",
   "dependencies": {
+    "body-parser": "^1.18.3",
     "express": "^4.16.3",
     "firebase-admin": "^5.12.1",
     "internet-available": "^1.0.0",
