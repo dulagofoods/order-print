@@ -487,7 +487,7 @@ function printOrder(order = {}) {
 
 }
 
-// server options and routes
+// server options and API routes
 
 const ngrok = require('ngrok');
 const admin = require('firebase-admin');
